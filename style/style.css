@@ -1,0 +1,15 @@
+#dragNDropSourceContainer {
+	border: 1px solid #000000;
+	margin-bottom: 10px;
+	padding: 10px;
+}
+
+#dragNDropTargetContainer {
+	border: 1px solid #000000;
+	padding: 10px;
+}
+
+.emptyDropTarget {
+	height: 200px;
+	width: 80%;
+}
