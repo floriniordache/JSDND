@@ -21,10 +21,11 @@
 			<div id="dragDiv">This is a div we're trying to drag</div>
 		</div>
 		<div>
-			<iframe src="iframe.html" width="800" height="600"></iframe>
+			<iframe src="iframe.html" width="800" height="600" id="dropTargetFrame"></iframe>
 		</div>
 		<script type="text/javascript">
 			initializeDragSource("dragNDropSourceContainer");
+			initializeDropTargetIframe("dropTargetFrame");
 		</script>
 	</body>
 </html>

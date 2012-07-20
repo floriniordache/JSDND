@@ -1,18 +1,28 @@
+//array holding the jQuery objects defined as drag sources
 var dragSources = [];
 
+//array holding the jQuery objects defined as drop destinations
+var dropDestinations = [];
+
+//currently dragged element
 var $draggedElement = undefined;
 
+//current hovered drop target
+var $hoveredDropTarget = undefined;
+
+//coordinates of the mouse when dragging has started 
 var mouseStartDragX = 0;
 var mouseStartDragY = 0;
 
+//position of the dragged element when dragging has started
 var dragElementOffsetX = 0;
 var dragElementOffsetY = 0;
 
 /*
  * Initializes a DOM element to be a drag source
  * 
- *  Method will iterate over all the element's children and inject the needed mouse event
- *   handlers so that the children will be draggable
+ *  Method will inject the needed mouse event handlers so that
+ *  the children of the drag source element will be draggable
  */
 function initializeDragSource(elementId) {
 	if($("#"+elementId).length > 0) {
@@ -58,36 +68,90 @@ function startDragging(e) {
 		$draggedElement = $dragableElement;
 		$dragableElement.css("border", "1px solid #00FF00");
 		$dragableElement.css("position", "absolute");
+
+		//get the position of the dragged element
+		dragElementOffsetX = $dragableElement.offset().left;
+		dragElementOffsetY = $dragableElement.offset().top;
 		
 		//get the current mouse position
 		mouseStartDragX = e.clientX;
 		mouseStartDragY = e.clientY;
 		
-		dragElementOffsetX = $dragableElement.offset().left;
-		dragElementOffsetY = $dragableElement.offset().top;
-		
 		//change the z index so we can drag the element
-		$dragableElement.css("zIndex", "1000px");
+		$dragableElement.css("z-index", "1000px");
+		
+		$dragableElement.css("left",(dragElementOffsetX + mouseStartDragX + 5 ) + 'px');
+		
+		$dragableElement.css("cursor", "no-drop");
 		
 		//initialize the handlers on the document element
 		$(document).mousemove(drag);
 		$(document).mouseup(finishDrag);
-		
-		// prevent text selection in IE
-        $(document).selectstart(function () { return false; });
+
+		$('body').append('<div id="overlay"></div>');
+	}
+}
+
+
+/*
+ * Initializes a DOM element to be a drop target
+ * 
+ * Injects the mouse event handlers so that DOM elements can be dropped on the drop target
+ */
+function initializeDropTargetIframe(frameElement) {
+	//register the iframe with the parent
+	if( $("#"+frameElement).length > 0 ) {
+		dropDestinations[dropDestinations.length] = $("#"+frameElement);
+	}
+	else {
+		alert( "Could not initialize iframe " +frameElement+ " as a drop target! " );
+	}
+}
+
+/*
+ * Mouse is hovering a drop target.
+ * 
+ * Hold the drop target in a variable, to be used in case a drop operation is initiated over it
+ */
+function dropMouseOver(e) {
+	$hoveredDropTarget = $(e.target);
+	
+	//change the mouse cursor to signal drop is allowed
+	if($draggedElement != undefined) {
+		$draggedElement.css("cursor", "pointer");
+	}
+}
+
+/*
+ * Mouse has exited a drop target
+ * 
+ * Un-initialize the $hoveredDropTarget variable, so we know the mouse is not over a drop target
+ */
+function dropMouseOut(e) {
+	$hoveredDropTarget = undefined;
+	
+	//change the mouse cursor to signal drop is denied
+	if($draggedElement != undefined) {
+		$draggedElement.css("cursor", "no-drop");		
 	}
 }
 
 /*
  * The actual drag method
+ * Move the dragged element as the mouse is moved
  */
 function drag(e) {
 	if($draggedElement != undefined) {
-		$draggedElement.css("left",(dragElementOffsetX + e.clientX - mouseStartDragX) + 'px');
+		$draggedElement.css("left",(dragElementOffsetX + e.clientX + /*mouseStartDragX*/ + 5) + 'px');
 		$draggedElement.css("top",(dragElementOffsetY + e.clientY - mouseStartDragY) + 'px');
+		$draggedElement.css("cursor", "no-drop");
 	}
 }
 
+/*
+ * Dragging has finished. Must determine if the mouse is over a drop target so that we can 
+ * initialize the drop operation 
+ */
 function finishDrag(e) {
 	if($draggedElement != undefined) {
 		//remove the handlers for the document element
@@ -95,12 +159,71 @@ function finishDrag(e) {
 		$(document).unbind("mouseup");
 		$(document).unbind("selectstart");
 		
-		$draggedElement.css({'cursor':'default'});
-		
+		$('#overlay').remove();
+
+		var dropTarget = getDropTarget(e);
+		if(dropTarget != undefined) {
+			//send the dragged element to the receiving iframe
+			dropTarget[0].contentWindow.receiveDroppedElements($dragableElement);
+
+			//make an ajax request
+			$.ajax({
+				url: "serviceEndpoint.xml",
+				type: "get",
+				//success handler
+				success: function(response, textStatus, jqXHR){
+				    //alert the message
+					var serverResponse = response.childNodes[0].getAttribute("status");
+					var alertMessage = "Server Response:" + serverResponse + "\n" +
+								"Drag ID:" + $dragableElement.attr("id");
+					alert(alertMessage);
+				},
+				//error handler
+				error: function(jqXHR, textStatus, errorThrown){
+				    // display the error
+				    alert(
+					"The following error occured: "+
+					textStatus + errorThrown
+				    );
+				}
+			});
+		}
+
+		$dragableElement.css("cursor", "default");
+		$dragableElement.css("z-index", "");
+		$dragableElement.css("left","");
+		$dragableElement.css("top","");
+		$dragableElement.css("position", "");
+
 		$draggedElement = undefined;
 	}	
 }
 
+/*
+* Determines if the event coordinates are within the boundaries of a drop target
+*/
+function getDropTarget(e) {
+	for(var i = 0 ; i < dropDestinations.length ; i++) {
+		var dropDest = dropDestinations[i];
+		if( e.clientX >= dropDest.position().left && e.clientX <= (dropDest.position().left + dropDest.width()) && 
+			e.clientY >= dropDest.position().top && e.clientY <= (dropDest.position().top + dropDest.height())) {
+			return dropDest;
+		}
+	}
+
+	return undefined;
+}
+
+/*
+* Method called from the top frame when a drop event has completed
+*/
+function receiveDroppedElements($element) {
+	$element.clone().appendTo('body');
+}
+
+/*
+ * Search through the parents of $element to determine the immediate child of a drag source.
+ */
 function getDragableElement($element) {
 	$parents = $element.parents();
 	
@@ -119,6 +242,9 @@ function getDragableElement($element) {
 	return undefined;
 }
 
+/*
+ * Searches through the drag sources array and determine if $element is present
+ */
 function isDragSource($element) {
 	for( var i = 0 ; i < dragSources.length ; i++ ) {
 		if( dragSources[i][0] === $element[0] ) {
