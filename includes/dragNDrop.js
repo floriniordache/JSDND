@@ -1,3 +1,7 @@
+/*
+ * JS file containing the Drag and Drop utility methods
+ */
+
 //array holding the jQuery objects defined as drag sources
 var dragSources = [];
 
@@ -80,15 +84,21 @@ function startDragging(e) {
 		//change the z index so we can drag the element
 		$dragableElement.css("z-index", "1000px");
 		
+		//position the draggable element to the right of the mouse cursor
 		$dragableElement.css("left",(dragElementOffsetX + mouseStartDragX + 5 ) + 'px');
-		
-		$dragableElement.css("cursor", "no-drop");
-		
+			
 		//initialize the handlers on the document element
 		$(document).mousemove(drag);
 		$(document).mouseup(finishDrag);
 
+		//append the overlay to the body, so the iframes don't disupt the mouse handler events
 		$('body').append('<div id="overlay"></div>');
+		
+		//set the cursor to no-drop state
+		$("#overlay").css("cursor", "no-drop");
+		
+		//disable the text selection
+		document.onselectstart = function () { return false; };
 	}
 }
 
@@ -109,42 +119,25 @@ function initializeDropTargetIframe(frameElement) {
 }
 
 /*
- * Mouse is hovering a drop target.
- * 
- * Hold the drop target in a variable, to be used in case a drop operation is initiated over it
- */
-function dropMouseOver(e) {
-	$hoveredDropTarget = $(e.target);
-	
-	//change the mouse cursor to signal drop is allowed
-	if($draggedElement != undefined) {
-		$draggedElement.css("cursor", "pointer");
-	}
-}
-
-/*
- * Mouse has exited a drop target
- * 
- * Un-initialize the $hoveredDropTarget variable, so we know the mouse is not over a drop target
- */
-function dropMouseOut(e) {
-	$hoveredDropTarget = undefined;
-	
-	//change the mouse cursor to signal drop is denied
-	if($draggedElement != undefined) {
-		$draggedElement.css("cursor", "no-drop");		
-	}
-}
-
-/*
  * The actual drag method
  * Move the dragged element as the mouse is moved
  */
 function drag(e) {
 	if($draggedElement != undefined) {
+		//move the currently dragged element
 		$draggedElement.css("left",(dragElementOffsetX + e.clientX + /*mouseStartDragX*/ + 5) + 'px');
 		$draggedElement.css("top",(dragElementOffsetY + e.clientY - mouseStartDragY) + 'px');
-		$draggedElement.css("cursor", "no-drop");
+		$dragableElement.css("border", "1px solid #00FF00");
+		
+		//determine if mouse is over a drop target, to properly change the cursor state
+		var dropTarget = getDropTarget(e.clientX, e.clientY);
+		if(dropTarget != undefined) {
+			$("#overlay").css("cursor", "default");
+		}
+		else {
+			$("#overlay").css("cursor", "no-drop");			
+		}
+		
 	}
 }
 
@@ -157,23 +150,39 @@ function finishDrag(e) {
 		//remove the handlers for the document element
 		$(document).unbind("mousemove");
 		$(document).unbind("mouseup");
-		$(document).unbind("selectstart");
+
+		//enable the text selection
+		document.onselectstart = function () { return true; };
 		
+		//remove the div overlay
 		$('#overlay').remove();
 
-		var dropTarget = getDropTarget(e);
+		$dragableElement.css("border", "0");
+		
+		//determine if the mouse is over a drop target
+		var dropTarget = getDropTarget(e.clientX, e.clientY);
 		if(dropTarget != undefined) {
 			//send the dragged element to the receiving iframe
 			dropTarget[0].contentWindow.receiveDroppedElements($dragableElement);
 
+			//remove the dragged element from the source container
+			$dragableElement.remove();
+			
 			//make an ajax request
 			$.ajax({
 				url: "serviceEndpoint.xml",
 				type: "get",
 				//success handler
-				success: function(response, textStatus, jqXHR){
+				success: function(response, textStatus, jqXHR){			
 				    //alert the message
-					var serverResponse = response.childNodes[0].getAttribute("status");
+					var serverResponse = $(response).find("serviceResponse").attr("status");
+					if( serverResponse == undefined ) {
+						//must be the IE issue, force parse
+				        var xmlDoc = new ActiveXObject("Microsoft.XMLDOM"); 
+				        xmlDoc.loadXML(response);
+				        serverResponse = $(xmlDoc).find("serviceResponse").attr("status");
+					}
+
 					var alertMessage = "Server Response:" + serverResponse + "\n" +
 								"Drag ID:" + $dragableElement.attr("id");
 					alert(alertMessage);
@@ -188,12 +197,18 @@ function finishDrag(e) {
 				}
 			});
 		}
+		else {
+			/*
+			 * drag finished on a surface that does not accept drops
+			 * return the element to the original position
+			 */
+			$dragableElement.css("z-index", "");
+			$dragableElement.css("left","");
+			$dragableElement.css("top","");
+			$dragableElement.css("position", "");
+		}
 
-		$dragableElement.css("cursor", "default");
-		$dragableElement.css("z-index", "");
-		$dragableElement.css("left","");
-		$dragableElement.css("top","");
-		$dragableElement.css("position", "");
+		$(document).css("cursor", "default");
 
 		$draggedElement = undefined;
 	}	
@@ -202,11 +217,11 @@ function finishDrag(e) {
 /*
 * Determines if the event coordinates are within the boundaries of a drop target
 */
-function getDropTarget(e) {
+function getDropTarget(posX, posY) {
 	for(var i = 0 ; i < dropDestinations.length ; i++) {
 		var dropDest = dropDestinations[i];
-		if( e.clientX >= dropDest.position().left && e.clientX <= (dropDest.position().left + dropDest.width()) && 
-			e.clientY >= dropDest.position().top && e.clientY <= (dropDest.position().top + dropDest.height())) {
+		if( posX >= dropDest.position().left && posX <= (dropDest.position().left + dropDest.width()) && 
+				posY >= dropDest.position().top && posY <= (dropDest.position().top + dropDest.height())) {
 			return dropDest;
 		}
 	}
@@ -218,7 +233,18 @@ function getDropTarget(e) {
 * Method called from the top frame when a drop event has completed
 */
 function receiveDroppedElements($element) {
-	$element.clone().appendTo('body');
+	
+	//clone the dropped element
+	$clonedElement = $element.clone();
+	
+	//clean the styles that allowed dragging
+	$clonedElement.css("z-index", "");
+	$clonedElement.css("left","");
+	$clonedElement.css("top","");
+	$clonedElement.css("position", "");	
+	
+	//append the element to the body
+	$('body').append($clonedElement[0].outerHTML);
 }
 
 /*
