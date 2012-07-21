@@ -59,7 +59,13 @@ function dragMouseOver(e) {
 function dragMouseOut(e) {
 	$dragableElement = getDragableElement($(e.target));
 	if( $dragableElement != undefined ) {
+		//remove the red border of the hovered element
 		$dragableElement.css("border", "0");
+	}
+	
+	if($draggedElement != undefined) {
+		//add green border on the currently dragged element
+		$draggedElement.css("border", "1px solid #00FF00");
 	}
 }
 
@@ -71,8 +77,6 @@ function startDragging(e) {
 	if( $dragableElement != undefined ) {
 		//set the current draggable element, which we'll use in the mouse move handler
 		$draggedElement = $dragableElement;
-		$dragableElement.css("border", "1px solid #00FF00");
-		$dragableElement.css("position", "absolute");
 
 		//get the position of the dragged element
 		dragElementOffsetX = $dragableElement.offset().left;
@@ -82,12 +86,6 @@ function startDragging(e) {
 		mouseStartDragX = e.clientX;
 		mouseStartDragY = e.clientY;
 		
-		//change the z index so we can drag the element
-		$dragableElement.css("z-index", "1000px");
-		
-		//position the draggable element to the right of the mouse cursor
-		$dragableElement.css("left",(dragElementOffsetX + mouseStartDragX + 5 ) + 'px');
-			
 		//initialize the handlers on the document element
 		$(document).mousemove(drag);
 		$(document).mouseup(finishDrag);
@@ -100,6 +98,13 @@ function startDragging(e) {
 		
 		//disable the text selection
 		document.onselectstart = function () { return false; };
+		
+		//position the draggable element to the right of the mouse cursor
+		$dragableElement.css("left",(dragElementOffsetX + mouseStartDragX + 5 ) + 'px');
+		$dragableElement.css("position", "absolute");
+		//change the z index so we can drag the element
+		$dragableElement.css("z-index", "1000px");
+		$dragableElement.css("border", "1px solid #00FF00");
 	}
 }
 

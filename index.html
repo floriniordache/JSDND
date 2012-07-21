@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
+		<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
 		<title>Drag and drop source</title>
 		<script src="includes/jquery-1.7.2.js" type="text/javascript"></script>
 		<script src="includes/dragNDrop.js" type="text/javascript"></script>
@@ -16,16 +17,31 @@
 				<tr>
 					<td>Column2</td>
 				</tr>
+				<tr>
+					<td>
+					<div>
+						Third row
+						<span>&nbsp; Some more info</span>
+					</div>
+					</td>
+				</tr>
 			</table>
 			<span id="dragSpan">This is a span we're trying to drag</span>
 			<div id="dragDiv">This is a div we're trying to drag</div>
+			<div>
+				New div
+				<span>This is another span element</span>
+				<div>Div inside a div</div>
+			</div>
 		</div>
 		<div>
-			<iframe src="iframe.html" width="800" height="600" id="dropTargetFrame"></iframe>
+			<iframe src="iframe.html" width="400" height="500" id="dropTargetFrame1"></iframe>
+			<iframe src="iframe.html" width="400" height="500" id="dropTargetFrame2"></iframe>
 		</div>
 		<script type="text/javascript">
 			initializeDragSource("dragNDropSourceContainer");
-			initializeDropTargetIframe("dropTargetFrame");
+			initializeDropTargetIframe("dropTargetFrame1");
+			initializeDropTargetIframe("dropTargetFrame2");
 		</script>
 	</body>
 </html>
