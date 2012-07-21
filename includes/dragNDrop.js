@@ -47,6 +47,7 @@ function dragMouseOver(e) {
 	//only the immediate children of the source are draggable, need to find it based on the actual mouse over target
 	$dragableElement = getDragableElement($(e.target));
 	if( $dragableElement != undefined ) {
+		//highlight the hovered element
 		$dragableElement.css("border", "1px solid #FF0000");
 		$dragableElement.css({'cursor':'default'});
 	}
@@ -127,6 +128,8 @@ function drag(e) {
 		//move the currently dragged element
 		$draggedElement.css("left",(dragElementOffsetX + e.clientX + /*mouseStartDragX*/ + 5) + 'px');
 		$draggedElement.css("top",(dragElementOffsetY + e.clientY - mouseStartDragY) + 'px');
+		
+		//keep the green highlight
 		$dragableElement.css("border", "1px solid #00FF00");
 		
 		//determine if mouse is over a drop target, to properly change the cursor state
@@ -157,6 +160,7 @@ function finishDrag(e) {
 		//remove the div overlay
 		$('#overlay').remove();
 
+		//disable the element border
 		$dragableElement.css("border", "0");
 		
 		//determine if the mouse is over a drop target
@@ -208,8 +212,10 @@ function finishDrag(e) {
 			$dragableElement.css("position", "");
 		}
 
+		//restore the cursor state for the document element
 		$(document).css("cursor", "default");
 
+		//unset the currently dragged element
 		$draggedElement = undefined;
 	}	
 }
